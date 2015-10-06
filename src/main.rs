@@ -83,5 +83,17 @@ const PC2 : [u8; 48] =
 
 
 pub fn key_kn_from_pair(left: i64, right: i64) -> i64 {
-    0
+    let combined = ((left << 28) | right) << 8;
+    let mut encrypted_key = 0i64;
+    for idx in 0..48 {
+        let combined_bit_at_position = (combined >> (64 - PC2[idx])) & 1;
+        encrypted_key = encrypted_key << 1;
+        encrypted_key = encrypted_key | combined_bit_at_position;
+    }
+    encrypted_key
+}
+
+
+pub fn convert_pairs_to_encrypted_48_bit_keys(pairs: Vec<(i64, i64)>) -> Vec<i64> {
+    Vec::new()
 }

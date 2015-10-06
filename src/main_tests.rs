@@ -94,9 +94,18 @@ fn generate_key_plus_based_on_pc1_table() {
 }
 
 #[test]
-fn creating_key_based_on_paris_and_PC2_table() {
+fn creating_key_based_on_pairs_and_PC2_table() {
     let left = 0b1110000110011001010101011111;
     let right = 0b1010101011001100111100011110;
     let expected_key = 0b000110110000001011101111111111000111000001110010;
     assert_eq!(expected_key, key_kn_from_pair(left, right));
+}
+
+
+#[test]
+fn creating_48_bit_key_based_on_maximum_pairs() {
+    let left = 0b1111_1111_1111_1111_1111_1111_1111;
+    let right = 0b1111_1111_1111_1111_1111_1111_1111;
+    let expected = 0b1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111;
+    assert_eq!(expected, key_kn_from_pair(left, right));
 }
