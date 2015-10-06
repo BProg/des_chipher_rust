@@ -9,10 +9,8 @@ const KEY : i64 = 0x133457799BBCDFF1;
 fn main() {
     let key_plus = generate_key_plus(KEY);
     let (left, right) = split_key(key_plus, 56);
-    let subkeys = create_16_subkeys(left, right);
-    for idx in 0..subkeys.len() {
-        println!("[{0}]{1:b}\n[{0}]{2:b}\n\n",idx, subkeys[idx].0, subkeys[idx].1);
-    }
+    let subkey_pairs = create_16_subkeys(left, right);
+    let subkeys_48_bit = convert_pairs_to_encrypted_48_bit_keys(subkey_pairs);
     //println!("{:b}\n{:b}", left, right);
 }
 
@@ -39,9 +37,10 @@ pub fn generate_key_plus(key: i64) -> i64 {
 }
 
 
-pub fn split_key(key : i64, key_len: i8) -> (i64, i64) {
-    let left_half = key >> key_len / 2;
-    let right_half = (key << 64 - key_len + key_len / 2) >> 64 - key_len + key_len / 2;
+pub fn split_key(key : i64, key_len: u8) -> (i64, i64) {
+    let half_size = key_len / 2;
+    let left_half = (key >> half_size) & bit_pattern_containing_ones(half_size);
+    let right_half = key & bit_pattern_containing_ones(half_size);
     (left_half,right_half)
 }
 
@@ -95,5 +94,33 @@ pub fn key_kn_from_pair(left: i64, right: i64) -> i64 {
 
 
 pub fn convert_pairs_to_encrypted_48_bit_keys(pairs: Vec<(i64, i64)>) -> Vec<i64> {
-    Vec::new()
+    let mut keys_48_bit : Vec<i64> = Vec::new();
+    for idx in 0..pairs.len() {
+        keys_48_bit.push(key_kn_from_pair(pairs[idx].0, pairs[idx].1));
+    }
+    keys_48_bit
+}
+
+
+
+//Step 2: Encode each 64-bit block of data.
+const IP : [u8; 64] = [
+58, 50,42, 34, 26,18, 10, 2,
+60, 52,44, 36, 28,20, 12, 4,
+62, 54,46, 38, 30,22, 14, 6,
+64, 56,48, 40, 32,24, 16, 8,
+57, 49,41, 33, 25,17,  9, 1,
+59, 51,43, 35, 27,19, 11, 3,
+61, 53,45, 37, 29,21, 13, 5,
+63, 55,47, 39, 31,23, 15, 7
+];
+//b = bit
+pub fn initial_permutation_of_64bit_message(message : i64) -> i64 {
+    let mut permutation = 0i64;
+    for idx in 0..64 {
+        let bit_at_index_in_message = (message >> (64 - IP[idx])) & 1;
+        permutation = permutation << 1;
+        permutation = permutation | bit_at_index_in_message;
+    }
+    permutation
 }
