@@ -4,20 +4,20 @@ use super::*;
 #[test]
 fn rotatig_bit_with_1_on_firstbit() {
     let bit_to_rotate : i64 = 0b1111000011110000111100001111;
-    assert_eq!(0b1110000111100001111000011111, bit_rotate_left(bit_to_rotate, 1));
+    assert_eq!(0b1110000111100001111000011111, bit_rotate_left(bit_to_rotate, 1, 28));
 }
 
 
 #[test]
 fn rotatig_bit_with_2_positions() {
     let bit_to_rotate : i64 = 0b1111_0000_1111_0000_1111_0000_1111;
-    assert_eq!(0b1100_0011_1100_0011_1100_0011_1111, bit_rotate_left(bit_to_rotate, 2));
+    assert_eq!(0b1100_0011_1100_0011_1100_0011_1111, bit_rotate_left(bit_to_rotate, 2, 28));
 }
 
 
 #[test]
 fn ones_for_2_is_11() {
-    assert_eq!(0b11, bit_pattern_containing_ones(2));
+    assert_eq!(0b11, bit_pattern_ones(2));
 }
 
 

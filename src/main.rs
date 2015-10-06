@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod main_tests;
 
-//const MESS : i64 = 0x0123456789ABCDEF;
+const MESS : i64 = 0x0123456789ABCDEF;
 const KEY : i64 = 0x133457799BBCDFF1;
 
 
@@ -10,7 +10,10 @@ fn main() {
     let key_plus = generate_key_plus(KEY);
     let (left, right) = split_key(key_plus, 56);
     let subkey_pairs = create_16_subkeys(left, right);
-    let subkeys_48_bit = convert_pairs_to_encrypted_48_bit_keys(subkey_pairs);
+    let _subkeys_48_bit = convert_pairs_to_encrypted_48_bit_keys(subkey_pairs);
+
+    let message_permutation = initial_permutation_of_64bit_message(MESS);
+    let (left_message, right_message) = split_key(message_permutation, 64);
     //println!("{:b}\n{:b}", left, right);
 }
 
@@ -39,8 +42,8 @@ pub fn generate_key_plus(key: i64) -> i64 {
 
 pub fn split_key(key : i64, key_len: u8) -> (i64, i64) {
     let half_size = key_len / 2;
-    let left_half = (key >> half_size) & bit_pattern_containing_ones(half_size);
-    let right_half = key & bit_pattern_containing_ones(half_size);
+    let left_half = (key >> half_size) & bit_pattern_ones(half_size);
+    let right_half = key & bit_pattern_ones(half_size);
     (left_half,right_half)
 }
 
@@ -51,21 +54,22 @@ pub fn create_16_subkeys(left_half: i64, right_half: i64) -> Vec<(i64, i64)> {
     let mut subkeys : Vec<(i64, i64)> = Vec::new();
     subkeys.push((left_half, right_half));
     for idx in 0..16 {
-        let next_left = bit_rotate_left(subkeys[idx].0, LEFT_SHIFTS[idx]);
-        let next_right = bit_rotate_left(subkeys[idx].1, LEFT_SHIFTS[idx]);
+        let next_left = bit_rotate_left(subkeys[idx].0, LEFT_SHIFTS[idx], 28);
+        let next_right = bit_rotate_left(subkeys[idx].1, LEFT_SHIFTS[idx], 28);
         subkeys.push((next_left, next_right));
     }
     subkeys.remove(0);
     subkeys
 }
 
-pub fn bit_rotate_left(bit_array : i64, rol_count : u8) -> i64 {
-    let rotated_bit = ((bit_pattern_containing_ones(rol_count) << 28 - rol_count) & bit_array) >> 28 - rol_count;
-    ((bit_array << rol_count) & 0xffff_fff) | rotated_bit
+pub fn bit_rotate_left(bit_pattern : i64, rol_count : u8, pattern_len: u8) -> i64 {
+    let ones_for_rolled_bits = bit_pattern_ones(rol_count) << pattern_len - rol_count;
+    let rotated_bits = ((ones_for_rolled_bits) & bit_pattern) >> pattern_len - rol_count;
+    ((bit_pattern << rol_count) & bit_pattern_ones(pattern_len)) | rotated_bits
 }
 
 
-pub fn bit_pattern_containing_ones(how_much: u8) -> i64 {
+pub fn bit_pattern_ones(how_much: u8) -> i64 {
     ((2u64).pow(how_much as u32) - 1) as i64
 }
 
