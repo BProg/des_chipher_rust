@@ -128,6 +128,106 @@ fn initial_permutation_of_64bit_message(message : i64) -> i64 {
 }
 
 
+const E_TABLE : [u8; 48] = [
+32,  1, 2,  3,  4, 5,
+ 4,  5, 6,  7,  8, 9,
+ 8,  9,10, 11, 12,13,
+ 12, 13,14, 15, 16,17,
+ 16, 17,18, 19, 20,21,
+ 20, 21,22, 23, 24,25,
+ 24, 25,26, 27, 28,29,
+ 28, 29,30, 31, 32, 1
+];
+
+fn encode_function(block_32bit: i64, block_48bit: i64) -> i64 {
+    let expanded_block = expand_32bit_block_to_48bit_block_using_Etable(block_32bit);
+    let xored = block_48bit ^ expanded_block;
+    0
+}
+
+
+fn expand_32bit_block_to_48bit_block_using_Etable(block : i64) -> i64 {
+    let mut expanded = 0i64;
+    for idx in 0..48 {
+        let bit_at_index = (block >> (32 - E_TABLE[idx])) & 1;
+        expanded = expanded << 1;
+        expanded = expanded | bit_at_index;
+    }
+    expanded
+}
+
+
+fn shrink_48bit_block_to_32bit_block_with_Stables(block_48bit : i64) -> i64 {
+    let mut shrinked = 0i64;
+    let block_6bit_count = 8;
+    for idx in 0..block_6bit_count {
+        let ones_at_block_index = bit_pattern_ones(6) << (42 - 6 * idx);
+        let only_6bit_block = ((ones_at_block_index) & block_48bit);
+        let block_shited_left = only_6bit_block >> (42 - 6 * idx);
+        let row_idx = (block_shited_left & 0b00001) | ((block_shited_left & 0b100000) >> 4);
+        let col_idx = (block_shited_left & 0b011110) >> 1;
+        let block_4bit = value_from_S_at_position((idx + 1) as u8, row_idx as u8, col_idx as u8) as i64;
+        shrinked = (shrinked << 4) | block_4bit;
+    }
+    shrinked
+}
+
+
+fn value_from_S_at_position(theS: u8, row : u8, col: u8) -> u8 {
+    match theS {
+        1 if row < 4 && col < 16 => S1[(row * 16 + col) as usize],
+        2 if row < 4 && col < 16 => S2[(row * 16 + col) as usize],
+        3 if row < 4 && col < 16 => S3[(row * 16 + col) as usize],
+        4 if row < 4 && col < 16 => S4[(row * 16 + col) as usize],
+        5 if row < 4 && col < 16 => S5[(row * 16 + col) as usize],
+        6 if row < 4 && col < 16 => S6[(row * 16 + col) as usize],
+        7 if row < 4 && col < 16 => S7[(row * 16 + col) as usize],
+        8 if row < 4 && col < 16 => S8[(row * 16 + col) as usize],
+        _ => 0
+    }
+}
+
+
+//S-Boxes :
+const S1 : [u8; 64] = [14,  4, 13,  1,  2, 15, 11,  8,  3, 10,  6, 12,  5,  9,  0,  7,
+			 0, 15,  7,  4, 14,  2, 13,  1, 10,  6, 12, 11,  9,  5,  3,  8,
+			 4,  1, 14,  8, 13,  6,  2, 11, 15, 12,  9,  7,  3, 10,  5,  0,
+			15, 12,  8,  2,  4,  9,  1,  7,  5, 11,  3, 14, 10,  0,  6, 13];
+
+const S2 : [u8; 64] = [15,  1,  8, 14,  6, 11,  3,  4,  9,  7,  2, 13, 12,  0,  5, 10,
+			 3, 13,  4,  7, 15,  2,  8, 14, 12,  0,  1, 10,  6,  9, 11,  5,
+			 0, 14,  7, 11, 10,  4, 13,  1,  5,  8, 12,  6,  9,  3,  2, 15,
+			13,  8, 10,  1,  3, 15,  4,  2, 11,  6,  7, 12,  0,  5, 14,  9];
+
+const S3 : [u8; 64] = [10,  0,  9, 14,  6,  3, 15,  5,  1, 13, 12,  7, 11,  4,  2,  8,
+			13,  7,  0,  9,  3,  4,  6, 10,  2,  8,  5, 14, 12, 11, 15,  1,
+			13,  6,  4,  9,  8, 15,  3,  0, 11,  1,  2, 12,  5, 10, 14,  7,
+			 1, 10, 13,  0,  6,  9,  8,  7,  4, 15, 14,  3, 11,  5,  2, 12];
+
+const S4 : [u8; 64] = [ 7, 13, 14,  3,  0,  6,  9, 10,  1,  2,  8,  5, 11, 12,  4, 15,
+			13,  8, 11,  5,  6, 15,  0,  3,  4,  7,  2, 12,  1, 10, 14,  9,
+			10,  6,  9,  0, 12, 11,  7, 13, 15,  1,  3, 14,  5,  2,  8,  4,
+			 3, 15,  0,  6, 10,  1, 13,  8,  9,  4,  5, 11, 12,  7,  2, 14];
+
+const S5 : [u8; 64] = [ 2, 12,  4,  1,  7, 10, 11,  6,  8,  5,  3, 15, 13,  0, 14,  9,
+			14, 11,  2, 12,  4,  7, 13,  1,  5,  0, 15, 10,  3,  9,  8,  6,
+			 4,  2,  1, 11, 10, 13,  7,  8, 15,  9, 12,  5,  6,  3,  0, 14,
+			11,  8, 12,  7,  1, 14,  2, 13,  6, 15,  0,  9, 10,  4,  5,  3];
+
+const S6 : [u8; 64] = [12,  1, 10, 15,  9,  2,  6,  8,  0, 13,  3,  4, 14,  7,  5, 11,
+			10, 15,  4,  2,  7, 12,  9,  5,  6,  1, 13, 14,  0, 11,  3,  8,
+			 9, 14, 15,  5,  2,  8, 12,  3,  7,  0,  4, 10,  1, 13, 11,  6,
+			 4,  3,  2, 12,  9,  5, 15, 10, 11, 14,  1,  7,  6,  0,  8, 13];
+
+const S7 : [u8; 64] = [ 4, 11,  2, 14, 15,  0,  8, 13,  3, 12,  9,  7,  5, 10,  6,  1,
+			13,  0, 11,  7,  4,  9,  1, 10, 14,  3,  5, 12,  2, 15,  8,  6,
+			 1,  4, 11, 13, 12,  3,  7, 14, 10, 15,  6,  8,  0,  5,  9,  2,
+			 6, 11, 13,  8,  1,  4, 10,  7,  9,  5,  0, 15, 14,  2,  3, 12];
+
+const S8 : [u8; 64] = [13,  2,  8,  4,  6, 15, 11,  1, 10,  9,  3, 14,  5,  0, 12,  7,
+			 1, 15, 13,  8, 10,  3,  7,  4, 12,  5,  6, 11,  0, 14,  9,  2,
+			 7, 11,  4,  1,  9, 12, 14,  2,  0,  6, 10, 13, 15,  3,  5,  8,
+			 2,  1, 14,  7,  4, 10,  8, 13, 15, 12,  9,  0,  3,  5,  6, 11];
 
 
 //tests
@@ -157,7 +257,7 @@ fn ones_for_2_is_11() {
 #[cfg(test)]
 #[test]
 fn creating_vector_with_keys_returns_correct_subkeys() {
-    let subkeys = create_16_subkeys(0b1111000011001100101010101111, 0b0101010101100110011110001111);
+    let subkeys = create_16_subkeys(0xf0ccaaf, 0x556678f);
     assert_eq!(16, subkeys.len());
     //1
     assert_eq!(0b1110000110011001010101011111, subkeys[0].0);
@@ -267,6 +367,7 @@ fn get_48_bit_keys_from_array_of_28_bit_pairs() {
     0b011110011010111011011001110110111100100111100101,
     0b010101011111110010001010010000101100111110011001,
     0b011100101010110111010110110110110011010100011101,
+
     0b011111001110110000000111111010110101001110101000,
     0b011000111010010100111110010100000111101100101111,
     0b111011001000010010110111111101100001100010111100,
@@ -292,4 +393,36 @@ fn splitting_key_of_64_bit_into_32_bit_pair() {
     let left = 0xcc00ccffi64;
     let right = 0xf0aaf0aai64;
     assert_eq!((left, right), split_key(key, 64));
+}
+
+
+#[cfg(test)]
+#[test]
+//1111 0000 1010 1010 1111 0000 1010 1010 ->
+//0111 1010 0001 0101 0101 0101 0111 1010 0001 0101 0101 0101
+fn expand_f0aaf0aa_using_Etable_will_result_7a15557a1555() {
+    let block_32bit = 0b11110000101010101111000010101010;
+    let expected_block = 0b011110100001010101010101011110100001010101010101;
+    assert_eq!(expected_block, expand_32bit_block_to_48bit_block_using_Etable(block_32bit));
+}
+
+#[cfg(test)]
+#[test]
+//0110 0001 0001 0111 1011 1010 1000 0110 0110 0101 0010 0111 ->
+//0101 1100 1000 0010 1011 0101 1001 0111
+fn shirnk_6117ba866537_using_Stable_will_result_5c82b597() {
+    let block_48bit = 0x6117ba866527;
+    let expected_output = 0x5c82b597;
+    assert_eq!(expected_output, shrink_48bit_block_to_32bit_block_with_Stables(block_48bit));
+}
+
+
+#[cfg(test)]
+#[test]
+fn value_in_5th_S_position_2_10_is_12() {
+    let Stable_index = 5u8;
+    let row = 2u8;
+    let col = 10u8;
+    let expected = 12u8;
+    assert_eq!(expected, value_from_S_at_position(Stable_index, row, col));
 }
