@@ -4,14 +4,19 @@ const KEY : i64 = 0x133457799BBCDFF1;
 
 
 fn main() {
+
     let key_plus = generate_key_plus(KEY);
     let (left, right) = split_key(key_plus, 56);
-    let subkey_pairs = create_16_subkeys(left, right);
-    let _subkeys_48_bit = convert_pairs_to_encrypted_48_bit_keys(subkey_pairs);
+    let subkey_pairs = create_16_pairs_blocks_32bit(left, right);
+    let subkeys_48_bit = convert_pairs_to_encrypted_48_bit_keys(&subkey_pairs);
 
     let message_permutation = initial_permutation_of_64bit_message(MESS);
     let (left_message, right_message) = split_key(message_permutation, 64);
-    //println!("{:b}\n{:b}", left, right);
+    let last_pair = generate_last_pair_of_32bit_blocks(left_message,
+         right_message,
+          &subkeys_48_bit);
+    let encrypted_message = last_permutation_with_ip_table(last_pair);
+    println!("{:x}", encrypted_message);
 }
 
 
@@ -47,7 +52,7 @@ fn split_key(key : i64, key_len: u8) -> (i64, i64) {
 
 const LEFT_SHIFTS : [u8; 16] = [1,1,2,2,2,2,2,2,1,2,2,2,2,2,2,1];
 
-fn create_16_subkeys(left_half: i64, right_half: i64) -> Vec<(i64, i64)> {
+fn create_16_pairs_blocks_32bit(left_half: i64, right_half: i64) -> Vec<(i64, i64)> {
     let mut subkeys : Vec<(i64, i64)> = Vec::new();
     subkeys.push((left_half, right_half));
     for idx in 0..16 {
@@ -94,7 +99,7 @@ fn key_kn_from_pair(left: i64, right: i64) -> i64 {
 }
 
 
-fn convert_pairs_to_encrypted_48_bit_keys(pairs: Vec<(i64, i64)>) -> Vec<i64> {
+fn convert_pairs_to_encrypted_48_bit_keys(pairs: &Vec<(i64, i64)>) -> Vec<i64> {
     let mut keys_48_bit : Vec<i64> = Vec::new();
     for idx in 0..pairs.len() {
         keys_48_bit.push(key_kn_from_pair(pairs[idx].0, pairs[idx].1));
@@ -139,14 +144,16 @@ const E_TABLE : [u8; 48] = [
  28, 29,30, 31, 32, 1
 ];
 
+
 fn encode_function(block_32bit: i64, block_48bit: i64) -> i64 {
-    let expanded_block = expand_32bit_block_to_48bit_block_using_Etable(block_32bit);
+    let expanded_block = expand_32bit_block_to_48bit_block_using_e_table(block_32bit);
     let xored = block_48bit ^ expanded_block;
-    0
+    let shrinked_xor = shrink_48bit_block_to_32bit_block_with_s_tables(xored);
+    permutate_block_32bit_with_p_table(shrinked_xor)
 }
 
 
-fn expand_32bit_block_to_48bit_block_using_Etable(block : i64) -> i64 {
+fn expand_32bit_block_to_48bit_block_using_e_table(block : i64) -> i64 {
     let mut expanded = 0i64;
     for idx in 0..48 {
         let bit_at_index = (block >> (32 - E_TABLE[idx])) & 1;
@@ -157,24 +164,46 @@ fn expand_32bit_block_to_48bit_block_using_Etable(block : i64) -> i64 {
 }
 
 
-fn shrink_48bit_block_to_32bit_block_with_Stables(block_48bit : i64) -> i64 {
+fn shrink_48bit_block_to_32bit_block_with_s_tables(block_48bit : i64) -> i64 {
     let mut shrinked = 0i64;
     let block_6bit_count = 8;
     for idx in 0..block_6bit_count {
         let ones_at_block_index = bit_pattern_ones(6) << (42 - 6 * idx);
-        let only_6bit_block = ((ones_at_block_index) & block_48bit);
+        let only_6bit_block = (ones_at_block_index) & block_48bit;
         let block_shited_left = only_6bit_block >> (42 - 6 * idx);
         let row_idx = (block_shited_left & 0b00001) | ((block_shited_left & 0b100000) >> 4);
         let col_idx = (block_shited_left & 0b011110) >> 1;
-        let block_4bit = value_from_S_at_position((idx + 1) as u8, row_idx as u8, col_idx as u8) as i64;
+        let block_4bit = value_from_s_table_with_index((idx + 1) as u8, row_idx as u8, col_idx as u8) as i64;
         shrinked = (shrinked << 4) | block_4bit;
     }
     shrinked
 }
 
 
-fn value_from_S_at_position(theS: u8, row : u8, col: u8) -> u8 {
-    match theS {
+const P : [u8; 32] = [
+16, 7,20,21,
+29,12,28,17,
+1,15,23,26,
+5,18,31,10,
+2, 8,24,14,
+32,27, 3, 9,
+19,13,30, 6,
+22,11, 4,25
+];
+
+
+fn permutate_block_32bit_with_p_table(block_32bit : i64) -> i64 {
+    let mut permutated = 0i64;
+    for idx in 0..32 {
+        let bit_at_index = (block_32bit >> (32 - P[idx])) & 1;
+        permutated = permutated << 1;
+        permutated = permutated | bit_at_index;
+    }
+    permutated
+}
+
+fn value_from_s_table_with_index(s_idx: u8, row : u8, col: u8) -> u8 {
+    match s_idx {
         1 if row < 4 && col < 16 => S1[(row * 16 + col) as usize],
         2 if row < 4 && col < 16 => S2[(row * 16 + col) as usize],
         3 if row < 4 && col < 16 => S3[(row * 16 + col) as usize],
@@ -185,6 +214,44 @@ fn value_from_S_at_position(theS: u8, row : u8, col: u8) -> u8 {
         8 if row < 4 && col < 16 => S8[(row * 16 + col) as usize],
         _ => 0
     }
+}
+
+
+fn produce_right_block_32bit(left_block_32bit: i64,prev_right_block_32bit : i64, block_48bit: i64) -> i64 {
+    left_block_32bit ^ encode_function(prev_right_block_32bit, block_48bit)
+}
+
+
+fn generate_last_pair_of_32bit_blocks(left_block : i64, right_block : i64, blocks_48bit: &Vec<i64>) -> (i64,i64) {
+    let mut pair = (left_block, right_block);
+    for idx in 0..blocks_48bit.len() {
+        let next_left = pair.1;
+        let next_right = produce_right_block_32bit(pair.0, pair.1, blocks_48bit[idx]);
+        pair = (next_left, next_right);
+    }
+    pair
+}
+
+
+const IP_INVERSE : [u8; 64] = [
+40,   8, 48,  16,  56, 24,  64, 32,
+39,   7, 47,  15,  55, 23,  63, 31,
+38,   6, 46,  14,  54, 22,  62, 30,
+37,   5, 45,  13,  53, 21,  61, 29,
+36,   4, 44,  12,  52, 20,  60, 28,
+35,   3, 43,  11,  51, 19,  59, 27,
+34,   2, 42,  10,  50, 18,  58, 26,
+33,   1, 41,   9,  49, 17,  57, 25
+];
+fn last_permutation_with_ip_table(pair : (i64, i64)) -> i64 {
+    let block = (pair.1 << 32) | pair.0;
+    let mut permutation = 0i64;
+    for idx in 0..64 {
+        let bit_at_index_in_message = (block >> (64 - IP_INVERSE[idx])) & 1;
+        permutation = permutation << 1;
+        permutation = permutation | bit_at_index_in_message;
+    }
+    permutation
 }
 
 
@@ -257,7 +324,7 @@ fn ones_for_2_is_11() {
 #[cfg(test)]
 #[test]
 fn creating_vector_with_keys_returns_correct_subkeys() {
-    let subkeys = create_16_subkeys(0xf0ccaaf, 0x556678f);
+    let subkeys = create_16_pairs_blocks_32bit(0xf0ccaaf, 0x556678f);
     assert_eq!(16, subkeys.len());
     //1
     assert_eq!(0b1110000110011001010101011111, subkeys[0].0);
@@ -373,7 +440,7 @@ fn get_48_bit_keys_from_array_of_28_bit_pairs() {
     0b111011001000010010110111111101100001100010111100,
     0b111101111000101000111010110000010011101111111011];
 
-    assert_eq!(expected, convert_pairs_to_encrypted_48_bit_keys(pairs_28_bit));
+    assert_eq!(expected, convert_pairs_to_encrypted_48_bit_keys(&pairs_28_bit));
 }
 
 
@@ -403,7 +470,7 @@ fn splitting_key_of_64_bit_into_32_bit_pair() {
 fn expand_f0aaf0aa_using_Etable_will_result_7a15557a1555() {
     let block_32bit = 0b11110000101010101111000010101010;
     let expected_block = 0b011110100001010101010101011110100001010101010101;
-    assert_eq!(expected_block, expand_32bit_block_to_48bit_block_using_Etable(block_32bit));
+    assert_eq!(expected_block, expand_32bit_block_to_48bit_block_using_e_table(block_32bit));
 }
 
 #[cfg(test)]
@@ -413,7 +480,7 @@ fn expand_f0aaf0aa_using_Etable_will_result_7a15557a1555() {
 fn shirnk_6117ba866537_using_Stable_will_result_5c82b597() {
     let block_48bit = 0x6117ba866527;
     let expected_output = 0x5c82b597;
-    assert_eq!(expected_output, shrink_48bit_block_to_32bit_block_with_Stables(block_48bit));
+    assert_eq!(expected_output, shrink_48bit_block_to_32bit_block_with_s_tables(block_48bit));
 }
 
 
@@ -424,5 +491,84 @@ fn value_in_5th_S_position_2_10_is_12() {
     let row = 2u8;
     let col = 10u8;
     let expected = 12u8;
-    assert_eq!(expected, value_from_S_at_position(Stable_index, row, col));
+    assert_eq!(expected, value_from_s_table_with_index(Stable_index, row, col));
+}
+
+
+#[cfg(test)]
+#[test]
+fn test_value_from_s_table_is_0_when_row_or_col_is_too_big() {
+    let s_table_index = 4;
+    let row = 4;
+    let col = 15;
+    let expected = 0;
+    assert_eq!(expected, value_from_s_table_with_index(s_table_index, row, col));
+}
+
+
+#[cfg(test)]
+#[test]
+//1111 0000 1010 1010 1111 0000 1010 1010
+//0001 1011 0000 0010 1110 1111 1111 1100 0111 0000 0111 0010
+
+//0010 0011 0100 1010 1010 1001 1011 1011
+fn encode_function_returns_234aa9bb() {
+    let (block_32bit, block_48bit) = (0xf0aaf0aa, 0x1b02effc7072);
+    let output = 0x234aa9bb;
+    assert_eq!(output, encode_function(block_32bit, block_48bit));
+}
+
+
+#[cfg(test)]
+#[test]
+//0101 1100 1000 0010 1011 0101 1001 0111
+//0010 0011 0100 1010 1010 1001 1011 1011
+fn permutate_5c82b597_by_P_table_will_output_234559bb() {
+    let input = 0x5c82b597;
+    let output = 0x234aa9bb;
+    assert_eq!(output, permutate_block_32bit_with_p_table(input));
+}
+
+
+#[cfg(test)]
+#[test]
+//l0 = 1100 1100 0000 0000 1100 1100 1111 1111
+//r0 = 1111 0000 1010 1010 1111 0000 1010 1010
+//K1 = 0001 1011 0000 0010 1110 1111 1111 1100 0111 0000 0111 0010
+//R1 = 1110 1111 0100 1010 0110 0101 0100 0100
+fn right_block_R1_created_from_l0_r0_K1() {
+    let l0 = 0xcc00ccff;
+    let r0 = 0xf0aaf0aa;
+    let K1 = 0x1b02effc7072;
+    let R1 = 0xef4a6544;
+    assert_eq!(R1, produce_right_block_32bit(l0, r0, K1));
+}
+
+
+#[cfg(test)]
+#[test]
+//l0 = 1100 1100 0000 0000 1100 1100 1111 1111
+//r0 = 1111 0000 1010 1010 1111 0000 1010 1010
+//L16 = 0100 0011 0100 0010 0011 0010 0011 0100
+//R16 = 0000 1010 0100 1100 1101 1001 1001 0101
+fn final_pair_is_generated() {
+    let l0 = 0xcc00ccff;
+    let r0 = 0xf0aaf0aa;
+
+    let L16 = 0x43423234;
+    let R16 = 0xA4CD995;
+    //because this 2 functions are tested they are safe to call here
+    let subkeys = create_16_pairs_blocks_32bit(0xf0ccaaf, 0x556678f);
+    let keys_block_48bit = convert_pairs_to_encrypted_48_bit_keys(&subkeys);
+    assert_eq!((L16, R16), generate_last_pair_of_32bit_blocks(l0, r0, &keys_block_48bit));
+}
+
+
+#[cfg(test)]
+#[test]
+fn final_permutation_is_85E813540F0AB405_from_43423234_and_A4CD995() {
+    let L16 = 0x43423234;
+    let R16 = 0xA4CD995;
+    let permutation = 0x85E813540F0AB405;
+    assert_eq!(permutation, last_permutation_with_ip_table((L16, R16)));
 }
