@@ -448,7 +448,7 @@ fn get_48_bit_keys_from_array_of_28_bit_pairs() {
 #[test]
 fn permutation_of_64bit_integer_gives_58_bit() {
     let message_64bit = 0x123456789abcdef;
-    let intial_permutation = 0xcc00ccfff0aaf0aa;
+    let intial_permutation = 0xcc00ccfff0aaf0aa_u64 as i64;
     assert_eq!(intial_permutation, initial_permutation_of_64bit_message(message_64bit));
 }
 
@@ -456,7 +456,7 @@ fn permutation_of_64bit_integer_gives_58_bit() {
 #[cfg(test)]
 #[test]
 fn splitting_key_of_64_bit_into_32_bit_pair() {
-    let key =  0xcc00ccfff0aaf0aa;
+    let key =  0xcc00ccfff0aaf0aa_u64 as i64;
     let left = 0xcc00ccffi64;
     let right = 0xf0aaf0aai64;
     assert_eq!((left, right), split_key(key, 64));
@@ -569,6 +569,6 @@ fn final_pair_is_generated() {
 fn final_permutation_is_85E813540F0AB405_from_43423234_and_A4CD995() {
     let L16 = 0x43423234;
     let R16 = 0xA4CD995;
-    let permutation = 0x85E813540F0AB405;
+    let permutation = 0x85E813540F0AB405_u64 as i64;
     assert_eq!(permutation, last_permutation_with_ip_table((L16, R16)));
 }
