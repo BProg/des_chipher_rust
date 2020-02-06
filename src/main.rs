@@ -360,7 +360,7 @@ fn generate_key_plus_based_on_pc1_table() {
 
 #[cfg(test)]
 #[test]
-fn creating_key_based_on_pairs_and_PC2_table() {
+fn creating_key_based_on_pairs_and_pc2_table() {
     let left = 0b1110000110011001010101011111;
     let right = 0b1010101011001100111100011110;
     let expected_key = 0b000110110000001011101111111111000111000001110010;
@@ -455,7 +455,7 @@ fn splitting_key_of_64_bit_into_32_bit_pair() {
 #[test]
 //1111 0000 1010 1010 1111 0000 1010 1010 ->
 //0111 1010 0001 0101 0101 0101 0111 1010 0001 0101 0101 0101
-fn expand_f0aaf0aa_using_Etable_will_result_7a15557a1555() {
+fn expand_f0aaf0aa_using_etable_will_result_7a15557a1555() {
     let block_32bit = 0b11110000101010101111000010101010;
     let expected_block = 0b011110100001010101010101011110100001010101010101;
     assert_eq!(
@@ -468,7 +468,7 @@ fn expand_f0aaf0aa_using_Etable_will_result_7a15557a1555() {
 #[test]
 //0110 0001 0001 0111 1011 1010 1000 0110 0110 0101 0010 0111 ->
 //0101 1100 1000 0010 1011 0101 1001 0111
-fn shirnk_6117ba866537_using_Stable_will_result_5c82b597() {
+fn shirnk_6117ba866537_using_stable_will_result_5c82b597() {
     let block_48bit = 0x6117ba866527;
     let expected_output = 0x5c82b597;
     assert_eq!(
@@ -479,14 +479,14 @@ fn shirnk_6117ba866537_using_Stable_will_result_5c82b597() {
 
 #[cfg(test)]
 #[test]
-fn value_in_5th_S_position_2_10_is_12() {
-    let Stable_index = 5u8;
+fn value_in_5th_s_position_2_10_is_12() {
+    let s_table_index = 5u8;
     let row = 2u8;
     let col = 10u8;
     let expected = 12u8;
     assert_eq!(
         expected,
-        value_from_s_table_with_index(Stable_index, row, col)
+        value_from_s_table_with_index(s_table_index, row, col)
     );
 }
 
@@ -519,7 +519,7 @@ fn encode_function_returns_234aa9bb() {
 #[test]
 //0101 1100 1000 0010 1011 0101 1001 0111
 //0010 0011 0100 1010 1010 1001 1011 1011
-fn permutate_5c82b597_by_P_table_will_output_234559bb() {
+fn permutate_5c82b597_by_p_table_will_output_234559bb() {
     let input = 0x5c82b597;
     let output = 0x234aa9bb;
     assert_eq!(output, permutate_block_32bit_with_p_table(input));
@@ -531,12 +531,12 @@ fn permutate_5c82b597_by_P_table_will_output_234559bb() {
 //r0 = 1111 0000 1010 1010 1111 0000 1010 1010
 //K1 = 0001 1011 0000 0010 1110 1111 1111 1100 0111 0000 0111 0010
 //R1 = 1110 1111 0100 1010 0110 0101 0100 0100
-fn right_block_R1_created_from_l0_r0_K1() {
+fn right_block_r1_created_from_l0_r0_k1() {
     let l0 = 0xcc00ccff;
     let r0 = 0xf0aaf0aa;
-    let K1 = 0x1b02effc7072;
-    let R1 = 0xef4a6544;
-    assert_eq!(R1, produce_right_block_32bit(l0, r0, K1));
+    let k1 = 0x1b02effc7072;
+    let r1 = 0xef4a6544;
+    assert_eq!(r1, produce_right_block_32bit(l0, r0, k1));
 }
 
 #[cfg(test)]
@@ -549,22 +549,22 @@ fn final_pair_is_generated() {
     let l0 = 0xcc00ccff;
     let r0 = 0xf0aaf0aa;
 
-    let L16 = 0x43423234;
-    let R16 = 0xA4CD995;
+    let l16 = 0x43423234;
+    let r16 = 0xA4CD995;
     //because this 2 functions are tested they are safe to call here
     let subkeys = create_16_pairs_blocks_32bit(0xf0ccaaf, 0x556678f);
     let keys_block_48bit = convert_pairs_to_encrypted_48_bit_keys(&subkeys);
     assert_eq!(
-        (L16, R16),
+        (l16, r16),
         generate_last_pair_of_32bit_blocks(l0, r0, &keys_block_48bit)
     );
 }
 
 #[cfg(test)]
 #[test]
-fn final_permutation_is_85E813540F0AB405_from_43423234_and_A4CD995() {
-    let L16 = 0x43423234;
-    let R16 = 0xA4CD995;
+fn final_permutation_is_85_e813540_f0_ab405_from_43423234_and_a4_cd995() {
+    let l16 = 0x43423234;
+    let r16 = 0xA4CD995;
     let permutation = 0x85E813540F0AB405_u64 as i64;
-    assert_eq!(permutation, last_permutation_with_ip_table((L16, R16)));
+    assert_eq!(permutation, last_permutation_with_ip_table((l16, r16)));
 }
